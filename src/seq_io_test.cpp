@@ -2,6 +2,7 @@
 #include <iostream>
 #include <fstream>
 #include <chrono>
+#include <iomanip>
 #include <cmath> 
 #include <ctime>
 #include <array>
@@ -20,6 +21,9 @@
 #elif GCC_VERSION < 60300
     # warning "GCC version less than 6.3.0 is not tested but might work..."
 #endif
+
+
+using namespace std::chrono;
 
 
 typedef std::unique_ptr<char[]> uptr_char_array;
@@ -52,31 +56,72 @@ struct Args
 };
 
 
-using namespace std::chrono;
+class IOTestResult
+{
+    public:
+
+        IOTestResult(const high_resolution_clock::time_point& start,
+                     const high_resolution_clock::time_point& stop,
+                     const std::size_t elapsed_time, 
+                     const std::size_t throughput)
+            : start_(start), 
+              stop_(stop), 
+              elapsed_time_(elapsed_time), 
+              throughput_(throughput)
+        {}
+
+        high_resolution_clock::time_point getStart() const {
+            return start_;
+        }
+        
+        high_resolution_clock::time_point getStop() const {
+            return stop_;
+        }
+
+        std::size_t getElapsedTime() const {
+            return elapsed_time_;
+        }
+
+        std::size_t getThroughput() const {
+            return throughput_;
+        }
+
+    private:
+
+        high_resolution_clock::time_point start_;
+        high_resolution_clock::time_point stop_;
+        std::size_t elapsed_time_;
+        std::size_t throughput_;
+};
+
 
 // Template T should be an object from type: std::chrono::duration
 template <class T> class Timer
 {
     public:
 
-        Timer()
-        {
-            start_time = high_resolution_clock::now();
+        Timer() {}
+
+        void start() {
+            start_ = high_resolution_clock::now();
+        }
+        
+        void stop() {
+            stop_ = high_resolution_clock::now();
         }
 
-        std::size_t elapsed_time()
+        std::size_t elapsedTime()
         {
-            time_point<high_resolution_clock> stop_time = 
-                high_resolution_clock::now();
-
             //TODO C++17: std::chrono::round(duration)
             //T elapsed_time = duration_cast<T>(dur);
 
             // With C++11 we round the duration count manually...
             // Otherwise appropriate accurancy will be lost!
-            duration<double> dur = stop_time - start_time;
+            duration<double> dur = stop_ - start_;
             double dur_count = dur.count();
             size_t elapsed_time = 0;
+
+            std::cout << dur_count << " \n";
 
             if(std::is_same<T, std::chrono::milliseconds>::value)
                 elapsed_time = std::round(dur_count * 1000);
@@ -88,11 +133,30 @@ template <class T> class Timer
             return elapsed_time;
         }
 
+        high_resolution_clock::time_point getStart() {
+            return start_;
+        }
+
+        high_resolution_clock::time_point getStop() {
+            return stop_;
+        }
+
         ~Timer() {}
 
     private:
-        time_point<high_resolution_clock> start_time;
+
+        high_resolution_clock::time_point start_;
+        high_resolution_clock::time_point stop_;
 };
+
+
+std::string to_datetime_str(const high_resolution_clock::time_point tp)
+{
+    std::stringstream ss;
+    std::time_t t = system_clock::to_time_t(tp);
+    ss << std::put_time(std::localtime(&t), "%Y-%m-%d %T");
+    return ss.str();
+}
 
 
 bool file_exists(const std::string& file_path)
@@ -189,91 +253,94 @@ uptr_char_array create_random_block(const std::size_t block_size)
     for (std::size_t i = 0; i < block_size; ++i)
         block_data_ptr[i] = char(std::rand() % 256);
 
-    std::cout << &block_data_ptr << std::endl;
-
-    // TODO: Check what is returned!
     return block_data_ptr;
-    //return std::move(block_data_ptr);
 }
 
 
-std::size_t read_file(const std::size_t block_size, 
-                      const std::size_t count, 
-                      const std::string& file_path)
+void read_file(const uptr_char_array& block_data, 
+               const std::size_t block_size, 
+               const std::size_t count, 
+               const std::string& file_path)
 {
-    using namespace std::chrono;
-
-    uptr_char_array block_data_ptr(new char[block_size]);
-
-    Timer <seconds> timer;
-
     std::ifstream infile(file_path, std::ifstream::binary);
 
     for (std::size_t i = 0; i < count; i++) {
-        infile.read(block_data_ptr.get(), block_size);
+        infile.read(block_data.get(), block_size);
     }
 
     infile.close();
-
-    return timer.elapsed_time();
 }
 
 
-std::size_t write_random_file(const std::size_t block_size, 
-                              const std::size_t count, 
-                              const std::string& file_path)
+void write_file(const uptr_char_array& block_data,
+                const std::size_t block_size,
+                const std::size_t count, 
+                const std::string& file_path)
 {
-    using namespace std::chrono;
-
-    uptr_char_array block_data_ptr = create_random_block(block_size);
-
-    std::cout << &block_data_ptr << std::endl;
-
-    Timer <seconds> timer;
-
     std::ofstream outfile(file_path, std::ofstream::binary);
 
     for (std::size_t i = 0; i < count; i++) {
-        outfile.write(block_data_ptr.get(), block_size);
+        outfile.write(block_data.get(), block_size);
     }
 
     outfile.flush();
     outfile.close();
-
-    return timer.elapsed_time();
 }
 
 
-std::size_t run_io_test(const size_t block_size, 
-                        const size_t total_size, 
-                        const std::string& file_path, 
-                        const Mode mode)
+IOTestResult run_seq_io_test(const size_t block_size, 
+                             const size_t total_size, 
+                             const std::string& file_path, 
+                             const Mode mode)
 {
-
     if(total_size % block_size)
         throw std::runtime_error("Block size must be multiple of total size!");
 
     const std::size_t count = total_size / block_size;
+
+    std::size_t elapsed_time = 0;
+    std::size_t throughput_mb_per_sec = 0;
+
+    Timer <std::chrono::seconds> timer;
 
     if(mode == Mode::read)
     {
         if(file_exists(file_path) == false)
             throw std::runtime_error("File not found: " + file_path);
 
-        return read_file(block_size, count, file_path);
+        uptr_char_array block_data(new char[block_size]);
 
+        timer.start();
+        read_file(block_data, block_size, count, file_path);
+        timer.stop();
     }
-    
     else if(mode == Mode::write)
     {
         if(file_exists(file_path))
             throw std::runtime_error("File already exists: " + file_path);
 
-        return write_random_file(block_size, count, file_path);
+        uptr_char_array block_data = create_random_block(block_size);
+
+        timer.start();
+        write_file(block_data, block_size, count, file_path);
+        timer.stop();
     }
     else {
         throw std::runtime_error("No valid mode detected!");
     }
+
+    elapsed_time = timer.elapsedTime();
+
+    if(elapsed_time != 0)
+        throughput_mb_per_sec = (total_size / elapsed_time) / 1000000;
+    else
+        throughput_mb_per_sec = total_size / 1000000;
+
+
+    return IOTestResult(timer.getStart(), 
+                        timer.getStop(), 
+                        elapsed_time, 
+                        throughput_mb_per_sec);
 }
 
 
@@ -281,13 +348,16 @@ int main(int argc, char *argv[])
 {
     Args args = procress_args(argc, argv);
 
-    std::size_t elapsed_time = 
-        run_io_test(args.block_size, 
-                    args.total_size, 
-                    args.file_path, 
-                    args.mode);
+    IOTestResult result = 
+        run_seq_io_test(args.block_size, 
+                        args.total_size, 
+                        args.file_path, 
+                        args.mode);
 
-    std::cout << "Elapsed time: " << elapsed_time << std::endl;
+    std::cout << "Start Timestamp: " << to_datetime_str(result.getStart()) << std::endl;
+    std::cout << "Stop Timestamp: " << to_datetime_str(result.getStop()) << std::endl;
+    std::cout << "Elapsed time: " << result.getElapsedTime() << std::endl;
+    std::cout << "Throughput MB/s: " << result.getThroughput() << std::endl;
 
     return 0;
 }
