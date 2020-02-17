@@ -112,15 +112,17 @@ template <class T> class Timer
 
         std::size_t elapsedTime()
         {
-            //TODO C++17: std::chrono::round(duration)
-            //T elapsed_time = duration_cast<T>(dur);
+            //TODO C++17, which version exactly???: 
+            // std::chrono::round(duration)
+            // std::chrono::round<std::chrono::seconds>(stop_ - start_);
+            // T elapsed_time = duration_cast<T>(dur);
 
             // With C++11 we round the duration count manually...
             // Otherwise appropriate accurancy will be lost!
             duration<double> dur = stop_ - start_;
             double dur_count = dur.count();
             size_t elapsed_time = 0;
-
+ 
             std::cout << dur_count << " \n";
 
             if(std::is_same<T, std::chrono::milliseconds>::value)
@@ -354,10 +356,10 @@ int main(int argc, char *argv[])
                         args.file_path, 
                         args.mode);
 
-    std::cout << "Start Timestamp: " << to_datetime_str(result.getStart()) << std::endl;
-    std::cout << "Stop Timestamp: " << to_datetime_str(result.getStop()) << std::endl;
-    std::cout << "Elapsed time: " << result.getElapsedTime() << std::endl;
-    std::cout << "Throughput MB/s: " << result.getThroughput() << std::endl;
+    std::cout << to_datetime_str(result.getStart()) << "|" 
+              << to_datetime_str(result.getStop())  << "|" 
+              << result.getElapsedTime()            << "|" 
+              << result.getThroughput()             << "\n";
 
     return 0;
 }
