@@ -196,7 +196,7 @@ bool file_exists(const std::string& file_path)
 std::size_t size_to_bytes(const std::string& size)
 {
     std::smatch sm;
-    const std::string regex_pattern = "^([0-9]{1,4})([KMG]{1})$";
+    const std::string regex_pattern = "^([1-9]{1}[0-9]{0,2})([KMG]{1})$";
     std::regex regex(regex_pattern);
 
     if(not std::regex_search(size, sm, regex)) 
@@ -227,7 +227,13 @@ Args process_args(int argc, char *argv[])
     std::string file_path;
     Mode mode = Mode::none;
 
-    while((opt = getopt(argc, argv, "b:t:rwf:")) != -1)
+    std::string help_message = "USAGE:\n"
+        "-b BLOCK SIZE 1-999 {KMG}\n"
+        "-t TOTAL SIZE 1-999 {KMG}\n"
+        "-r/w READ/WRITE MODE\n"
+        "-f FILEPATH\n";
+
+    while((opt = getopt(argc, argv, "b:t:hrwf:")) != -1)
     {
         switch(opt)
         {
@@ -251,6 +257,10 @@ Args process_args(int argc, char *argv[])
                 break;
             case 'f':
                 file_path = optarg;
+                break;
+            case 'h':
+                std::cout << help_message << "\n";
+                exit(0);
                 break;
             case '?':
                 printf("unknown option: %c\n", optopt);
