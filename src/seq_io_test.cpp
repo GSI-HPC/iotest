@@ -123,8 +123,6 @@ template <class T> class Timer
             double dur_count = dur.count();
             size_t elapsed_time = 0;
  
-            std::cout << dur_count << " \n";
-
             if(std::is_same<T, std::chrono::milliseconds>::value)
                 elapsed_time = std::round(dur_count * 1000);
             else if(std::is_same<T, std::chrono::seconds>::value)
@@ -318,9 +316,6 @@ IOTestResult run_seq_io_test(const size_t block_size,
     }
     else if(mode == Mode::write)
     {
-        if(file_exists(file_path))
-            throw std::runtime_error("File already exists: " + file_path);
-
         uptr_char_array block_data = create_random_block(block_size);
 
         timer.Start();
