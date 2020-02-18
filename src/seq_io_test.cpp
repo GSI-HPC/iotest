@@ -60,36 +60,36 @@ class IOTestResult
 {
     public:
 
-        IOTestResult(const high_resolution_clock::time_point& start,
-                     const high_resolution_clock::time_point& stop,
+        IOTestResult(const high_resolution_clock::time_point& start_time,
+                     const high_resolution_clock::time_point& stop_time,
                      const std::size_t elapsed_time, 
                      const std::size_t throughput)
-            : start_(start), 
-              stop_(stop), 
+            : start_time_(start_time), 
+              stop_time_(stop_time), 
               elapsed_time_(elapsed_time), 
               throughput_(throughput)
         {}
 
-        high_resolution_clock::time_point getStart() const {
-            return start_;
+        high_resolution_clock::time_point start_time() const {
+            return start_time_;
         }
         
-        high_resolution_clock::time_point getStop() const {
-            return stop_;
+        high_resolution_clock::time_point stop_time() const {
+            return stop_time_;
         }
 
-        std::size_t getElapsedTime() const {
+        std::size_t elapsed_time() const {
             return elapsed_time_;
         }
 
-        std::size_t getThroughput() const {
+        std::size_t throughput() const {
             return throughput_;
         }
 
     private:
 
-        high_resolution_clock::time_point start_;
-        high_resolution_clock::time_point stop_;
+        high_resolution_clock::time_point start_time_;
+        high_resolution_clock::time_point stop_time_;
         std::size_t elapsed_time_;
         std::size_t throughput_;
 };
@@ -102,15 +102,15 @@ template <class T> class Timer
 
         Timer() {}
 
-        void start() {
-            start_ = high_resolution_clock::now();
+        void Start() {
+            start_time_ = high_resolution_clock::now();
         }
         
-        void stop() {
-            stop_ = high_resolution_clock::now();
+        void Stop() {
+            stop_time_ = high_resolution_clock::now();
         }
 
-        std::size_t elapsedTime()
+        std::size_t ElapsedTime()
         {
             //TODO C++17, which version exactly???: 
             // std::chrono::round(duration)
@@ -119,7 +119,7 @@ template <class T> class Timer
 
             // With C++11 we round the duration count manually...
             // Otherwise appropriate accurancy will be lost!
-            duration<double> dur = stop_ - start_;
+            duration<double> dur = stop_time_ - start_time_;
             double dur_count = dur.count();
             size_t elapsed_time = 0;
  
@@ -135,20 +135,20 @@ template <class T> class Timer
             return elapsed_time;
         }
 
-        high_resolution_clock::time_point getStart() {
-            return start_;
+        high_resolution_clock::time_point start_time() {
+            return start_time_;
         }
 
-        high_resolution_clock::time_point getStop() {
-            return stop_;
+        high_resolution_clock::time_point stop_time() {
+            return stop_time_;
         }
 
         ~Timer() {}
 
     private:
 
-        high_resolution_clock::time_point start_;
-        high_resolution_clock::time_point stop_;
+        high_resolution_clock::time_point start_time_;
+        high_resolution_clock::time_point stop_time_;
 };
 
 
@@ -312,9 +312,9 @@ IOTestResult run_seq_io_test(const size_t block_size,
 
         uptr_char_array block_data(new char[block_size]);
 
-        timer.start();
+        timer.Start();
         read_file(block_data, block_size, count, file_path);
-        timer.stop();
+        timer.Stop();
     }
     else if(mode == Mode::write)
     {
@@ -323,15 +323,15 @@ IOTestResult run_seq_io_test(const size_t block_size,
 
         uptr_char_array block_data = create_random_block(block_size);
 
-        timer.start();
+        timer.Start();
         write_file(block_data, block_size, count, file_path);
-        timer.stop();
+        timer.Stop();
     }
     else {
         throw std::runtime_error("No valid mode detected!");
     }
 
-    elapsed_time = timer.elapsedTime();
+    elapsed_time = timer.ElapsedTime();
 
     if(elapsed_time != 0)
         throughput_mb_per_sec = (total_size / elapsed_time) / 1000000;
@@ -339,8 +339,8 @@ IOTestResult run_seq_io_test(const size_t block_size,
         throughput_mb_per_sec = total_size / 1000000;
 
 
-    return IOTestResult(timer.getStart(), 
-                        timer.getStop(), 
+    return IOTestResult(timer.start_time(), 
+                        timer.stop_time(), 
                         elapsed_time, 
                         throughput_mb_per_sec);
 }
@@ -356,10 +356,10 @@ int main(int argc, char *argv[])
                         args.file_path, 
                         args.mode);
 
-    std::cout << to_datetime_str(result.getStart()) << "|" 
-              << to_datetime_str(result.getStop())  << "|" 
-              << result.getElapsedTime()            << "|" 
-              << result.getThroughput()             << "\n";
+    std::cout << to_datetime_str(result.start_time()) << "|" 
+              << to_datetime_str(result.stop_time())  << "|" 
+              << result.elapsed_time()                << "|" 
+              << result.throughput()                  << "\n";
 
     return 0;
 }
