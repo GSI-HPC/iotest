@@ -37,17 +37,31 @@ enum class Mode: char
 };
 
 
+std::string modeToString(const Mode m)
+{
+    if(m == Mode::read) {
+        return "READ";
+    }
+    else if(m == Mode::write) {
+        return "WRITE";
+    }
+    else {
+        return "NONE";
+    }
+}
+
+
 struct Args 
 {
-    const std::size_t block_size;
-    const std::size_t total_size;
+    const std::string block_size;
+    const std::string total_size;
     const std::string file_path;
     const Mode mode;
 
-    Args(const std::size_t block_size, 
-         const std::size_t total_size, 
+    Args(const std::string& block_size, 
+         const std::string& total_size, 
          const std::string& file_path, 
-         const Mode mode) 
+         const Mode& mode) 
             : block_size(block_size), 
               total_size(total_size), 
               file_path(file_path), 
@@ -63,11 +77,13 @@ class IOTestResult
         IOTestResult(const high_resolution_clock::time_point& start_time,
                      const high_resolution_clock::time_point& stop_time,
                      const std::size_t elapsed_time, 
-                     const std::size_t throughput)
+                     const std::size_t throughput,
+                     const std::string& description)
             : start_time_(start_time), 
               stop_time_(stop_time), 
               elapsed_time_(elapsed_time), 
-              throughput_(throughput)
+              throughput_(throughput),
+              description_(description)
         {}
 
         high_resolution_clock::time_point start_time() const {
@@ -86,12 +102,17 @@ class IOTestResult
             return throughput_;
         }
 
+        std::string description() const {
+            return description_;
+        }
+
     private:
 
         high_resolution_clock::time_point start_time_;
         high_resolution_clock::time_point stop_time_;
         std::size_t elapsed_time_;
         std::size_t throughput_;
+        std::string description_;
 };
 
 
@@ -197,12 +218,12 @@ std::size_t size_to_bytes(const std::string& size)
 }
 
 
-Args procress_args(int argc, char *argv[])
+Args process_args(int argc, char *argv[])
 {
     int opt = 0;
 
-    std::size_t block_size = 0;
-    std::size_t total_size = 0;
+    std::string block_size;
+    std::string total_size;
     std::string file_path;
     Mode mode = Mode::none;
 
@@ -211,10 +232,10 @@ Args procress_args(int argc, char *argv[])
         switch(opt)
         {
             case 'b':
-                block_size = size_to_bytes(optarg);
+                block_size = optarg;
                 break;
             case 't':
-                total_size = size_to_bytes(optarg);
+                total_size = optarg;
                 break;
             case 'r':
                 if(mode == Mode::none)
@@ -288,11 +309,16 @@ void write_file(const uptr_char_array& block_data,
 }
 
 
-IOTestResult run_seq_io_test(const size_t block_size, 
-                             const size_t total_size, 
+IOTestResult run_seq_io_test(const std::string& block, 
+                             const std::string& total, 
                              const std::string& file_path, 
                              const Mode mode)
 {
+    std::string description = "iotest-" + block + "-" + total;
+
+    std::size_t block_size = size_to_bytes(block);
+    std::size_t total_size = size_to_bytes(total);
+
     if(total_size % block_size)
         throw std::runtime_error("Block size must be multiple of total size!");
 
@@ -334,27 +360,31 @@ IOTestResult run_seq_io_test(const size_t block_size,
         throughput_mb_per_sec = total_size / 1000000;
 
 
-    return IOTestResult(timer.start_time(), 
-                        timer.stop_time(), 
-                        elapsed_time, 
-                        throughput_mb_per_sec);
+    return IOTestResult(
+        timer.start_time(), 
+        timer.stop_time(), 
+        elapsed_time, 
+        throughput_mb_per_sec,
+        description);
 }
 
 
 int main(int argc, char *argv[])
 {
-    Args args = procress_args(argc, argv);
+    Args args = process_args(argc, argv);
 
     IOTestResult result = 
-        run_seq_io_test(args.block_size, 
-                        args.total_size, 
-                        args.file_path, 
-                        args.mode);
+        run_seq_io_test(
+            args.block_size, 
+            args.total_size, 
+            args.file_path, 
+            args.mode);
 
     std::cout << to_datetime_str(result.start_time()) << "|" 
               << to_datetime_str(result.stop_time())  << "|" 
               << result.elapsed_time()                << "|" 
-              << result.throughput()                  << "\n";
+              << result.throughput()                  << "|"
+              << result.description()                 << "\n";
 
     return 0;
 }
