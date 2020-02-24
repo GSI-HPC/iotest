@@ -283,6 +283,9 @@ Args process_args(int argc, char *argv[])
 uptr_char_array create_random_block(const std::size_t block_size, 
                                     const std::size_t seed=1)
 {
+    if(seed == 0)
+        throw std::runtime_error("bad seed: " + std::to_string(seed));
+
     std::srand(seed);
     uptr_char_array block_data_ptr(new char[block_size]);
 
