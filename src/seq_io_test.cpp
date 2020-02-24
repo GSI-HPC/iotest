@@ -9,6 +9,7 @@
 #include <regex>
 
 #include <stdio.h>
+#include <stdlib.h>
 #include <unistd.h>
 
 
@@ -39,15 +40,12 @@ enum class Mode: char
 
 std::string modeToString(const Mode m)
 {
-    if(m == Mode::read) {
+    if(m == Mode::read) 
         return "READ";
-    }
-    else if(m == Mode::write) {
+    else if(m == Mode::write) 
         return "WRITE";
-    }
-    else {
+    else 
         return "NONE";
-    }
 }
 
 
@@ -56,15 +54,18 @@ struct Args
     const std::string block_size;
     const std::string total_size;
     const std::string file_path;
+    const std::string seed;
     const Mode mode;
 
     Args(const std::string& block_size, 
          const std::string& total_size, 
          const std::string& file_path, 
+         const std::string& seed, 
          const Mode& mode) 
             : block_size(block_size), 
               total_size(total_size), 
               file_path(file_path), 
+              seed(seed), 
               mode(mode) 
     {}
 };
@@ -187,9 +188,8 @@ bool file_exists(const std::string& file_path)
     if(file) {
         fclose(file);
         return true;
-    } else {
+    } else 
         return false;
-    }
 }
 
 
@@ -225,15 +225,17 @@ Args process_args(int argc, char *argv[])
     std::string block_size;
     std::string total_size;
     std::string file_path;
+    std::string seed;
     Mode mode = Mode::none;
 
     std::string help_message = "USAGE:\n"
         "-b BLOCK SIZE 1-999 {KMG}\n"
         "-t TOTAL SIZE 1-999 {KMG}\n"
         "-r/w READ/WRITE MODE\n"
-        "-f FILEPATH\n";
+        "-f FILEPATH\n"
+        "-S SEED NUMBER\n";
 
-    while((opt = getopt(argc, argv, "b:t:hrwf:")) != -1)
+    while((opt = getopt(argc, argv, "b:t:hrwf:S:")) != -1)
     {
         switch(opt)
         {
@@ -258,6 +260,9 @@ Args process_args(int argc, char *argv[])
             case 'f':
                 file_path = optarg;
                 break;
+            case 'S':
+                seed = optarg;
+                break;
             case 'h':
                 std::cout << help_message << "\n";
                 exit(0);
@@ -268,17 +273,17 @@ Args process_args(int argc, char *argv[])
         }
     }
     
-    for(; optind < argc; optind++) {
+    for(; optind < argc; optind++) 
         printf("extra arguments: %s\n", argv[optind]);
-    }
-    
-    return Args(block_size, total_size, file_path, mode);
+
+    return Args(block_size, total_size, file_path, seed, mode);
 }
 
 
-uptr_char_array create_random_block(const std::size_t block_size)
+uptr_char_array create_random_block(const std::size_t block_size, 
+                                    const std::size_t seed=1)
 {
-    std::srand(1);
+    std::srand(seed);
     uptr_char_array block_data_ptr(new char[block_size]);
 
     for (std::size_t i = 0; i < block_size; ++i)
@@ -295,9 +300,8 @@ void read_file(const uptr_char_array& block_data,
 {
     std::ifstream infile(file_path, std::ifstream::binary);
 
-    for (std::size_t i = 0; i < count; i++) {
+    for (std::size_t i = 0; i < count; i++) 
         infile.read(block_data.get(), block_size);
-    }
 
     infile.close();
 }
@@ -322,6 +326,7 @@ void write_file(const uptr_char_array& block_data,
 IOTestResult run_seq_io_test(const std::string& block, 
                              const std::string& total, 
                              const std::string& file_path, 
+                             const std::string& seed, 
                              const Mode mode)
 {
     std::string description = "iotest-" + block + "-" + total;
@@ -352,15 +357,23 @@ IOTestResult run_seq_io_test(const std::string& block,
     }
     else if(mode == Mode::write)
     {
-        uptr_char_array block_data = create_random_block(block_size);
+        uptr_char_array block_data;
+        
+        if(seed.empty()) 
+            block_data = create_random_block(block_size);
+        else
+        {
+            char *end;
+            const std::size_t seed_number = strtoull(seed.c_str(), &end, 10);
+            block_data = create_random_block(block_size, seed_number);
+        }
 
         timer.Start();
         write_file(block_data, block_size, count, file_path);
         timer.Stop();
     }
-    else {
+    else 
         throw std::runtime_error("No valid mode detected!");
-    }
 
     elapsed_time = timer.ElapsedTime();
 
@@ -388,6 +401,7 @@ int main(int argc, char *argv[])
             args.block_size, 
             args.total_size, 
             args.file_path, 
+            args.seed, 
             args.mode);
 
     std::cout << to_datetime_str(result.start_time()) << "|" 
