@@ -90,7 +90,7 @@ class IOTestResult
         high_resolution_clock::time_point start_time() const {
             return start_time_;
         }
-        
+
         high_resolution_clock::time_point stop_time() const {
             return stop_time_;
         }
@@ -196,7 +196,7 @@ bool file_exists(const std::string& file_path)
 std::size_t size_to_bytes(const std::string& size)
 {
     std::smatch sm;
-    const std::string regex_pattern = "^([1-9]{1}[0-9]{0,2})([KMG]{1})$";
+    const std::string regex_pattern = "^([1-9]{1}[0-9]{0,2})([KMGT]{1})$";
     std::regex regex(regex_pattern);
 
     if(not std::regex_search(size, sm, regex)) 
@@ -213,6 +213,8 @@ std::size_t size_to_bytes(const std::string& size)
         bytes = value * 1048576;
     else if(unit == 'G')
         bytes = value * 1073741824;
+    else if(unit == 'T')
+        bytes = value * 1099511627776;
 
     return bytes;
 }
@@ -229,8 +231,8 @@ Args process_args(int argc, char *argv[])
     Mode mode = Mode::none;
 
     std::string help_message = "USAGE:\n"
-        "-b BLOCK SIZE 1-999 {KMG}\n"
-        "-t TOTAL SIZE 1-999 {KMG}\n"
+        "-b BLOCK SIZE 1-999{KM}/1G\n"
+        "-t TOTAL SIZE 1-999{KMGT}\n"
         "-r/w READ/WRITE MODE\n"
         "-f FILEPATH\n"
         "-S SEED NUMBER\n";
@@ -336,6 +338,9 @@ IOTestResult run_seq_io_test(const std::string& block,
 
     std::size_t block_size = size_to_bytes(block);
     std::size_t total_size = size_to_bytes(total);
+
+    if(block_size > 1073741824)
+        throw std::runtime_error("Max block size is 1GiB!");
 
     if(total_size % block_size)
         throw std::runtime_error("Block size must be multiple of total size!");
