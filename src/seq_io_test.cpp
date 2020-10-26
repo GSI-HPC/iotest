@@ -237,6 +237,13 @@ Args process_args(int argc, char *argv[])
         "-f FILEPATH\n"
         "-S SEED NUMBER\n";
 
+    if (argc == 1)
+    {
+        std::cout << help_message << "\n";
+        exit(0);
+    }
+
+
     while((opt = getopt(argc, argv, "b:t:hrwf:S:")) != -1)
     {
         switch(opt)
@@ -305,7 +312,7 @@ void read_file(const uptr_char_array& block_data,
 {
     std::ifstream infile(file_path, std::ifstream::binary);
 
-    for (std::size_t i = 0; i < count; i++) 
+    for (std::size_t i = 0; i < count; i++)
         infile.read(block_data.get(), block_size);
 
     infile.close();
@@ -319,9 +326,8 @@ void write_file(const uptr_char_array& block_data,
 {
     std::ofstream outfile(file_path, std::ofstream::binary);
 
-    for (std::size_t i = 0; i < count; i++) {
+    for (std::size_t i = 0; i < count; i++)
         outfile.write(block_data.get(), block_size);
-    }
 
     outfile.flush();
     outfile.close();
