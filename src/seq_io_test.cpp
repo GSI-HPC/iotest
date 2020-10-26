@@ -235,7 +235,7 @@ Args process_args(int argc, char *argv[])
         "-t TOTAL SIZE 1-999{KMGT}\n"
         "-r/w READ/WRITE MODE\n"
         "-f FILEPATH\n"
-        "-S SEED NUMBER\n";
+        "-S SEED NUMBER (optional)\n";
 
     if (argc == 1)
     {
@@ -282,7 +282,7 @@ Args process_args(int argc, char *argv[])
         }
     }
     
-    for(; optind < argc; optind++) 
+    for(; optind < argc; optind++)
         printf("extra arguments: %s\n", argv[optind]);
 
     return Args(block_size, total_size, file_path, seed, mode);
@@ -340,7 +340,7 @@ IOTestResult run_seq_io_test(const std::string& block,
                              const std::string& seed, 
                              const Mode mode)
 {
-    std::string description = "iotest-" + block + "-" + total;
+    std::string description;
 
     std::size_t block_size = size_to_bytes(block);
     std::size_t total_size = size_to_bytes(total);
@@ -360,6 +360,8 @@ IOTestResult run_seq_io_test(const std::string& block,
 
     if(mode == Mode::read)
     {
+        description = "seq_io_test-read-" + block + "-" + total;
+
         if(file_exists(file_path) == false)
             throw std::runtime_error("File not found: " + file_path);
 
@@ -371,6 +373,8 @@ IOTestResult run_seq_io_test(const std::string& block,
     }
     else if(mode == Mode::write)
     {
+        description = "seq_io_test-write-" + block + "-" + total;
+
         uptr_char_array block_data;
         
         if(seed.empty()) 
