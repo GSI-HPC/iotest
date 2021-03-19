@@ -3,7 +3,7 @@
 #include <fstream>
 #include <chrono>
 #include <iomanip>
-#include <cmath> 
+#include <cmath>
 #include <ctime>
 #include <array>
 #include <regex>
@@ -11,7 +11,6 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
-
 
 #define GCC_VERSION (__GNUC__ * 10000 \
                      + __GNUC_MINOR__ * 100 \
@@ -23,12 +22,9 @@
     # warning "GCC version less than 6.3.0 is not tested but might work..."
 #endif
 
-
 using namespace std::chrono;
 
-
 typedef std::unique_ptr<char[]> uptr_char_array;
-
 
 enum class Mode: char
 {
@@ -37,19 +33,17 @@ enum class Mode: char
     write ='w'
 };
 
-
 std::string modeToString(const Mode m)
 {
-    if(m == Mode::read) 
+    if(m == Mode::read)
         return "READ";
-    else if(m == Mode::write) 
+    else if(m == Mode::write)
         return "WRITE";
-    else 
+    else
         return "NONE";
 }
 
-
-struct Args 
+struct Args
 {
     const std::string block_size;
     const std::string total_size;
@@ -57,19 +51,18 @@ struct Args
     const std::string seed;
     const Mode mode;
 
-    Args(const std::string& block_size, 
-         const std::string& total_size, 
-         const std::string& file_path, 
-         const std::string& seed, 
-         const Mode& mode) 
-            : block_size(block_size), 
-              total_size(total_size), 
-              file_path(file_path), 
-              seed(seed), 
-              mode(mode) 
+    Args(const std::string& block_size,
+         const std::string& total_size,
+         const std::string& file_path,
+         const std::string& seed,
+         const Mode& mode)
+            : block_size(block_size),
+              total_size(total_size),
+              file_path(file_path),
+              seed(seed),
+              mode(mode)
     {}
 };
-
 
 class IOTestResult
 {
@@ -77,12 +70,12 @@ class IOTestResult
 
         IOTestResult(const high_resolution_clock::time_point& start_time,
                      const high_resolution_clock::time_point& stop_time,
-                     const std::size_t elapsed_time, 
+                     const std::size_t elapsed_time,
                      const std::size_t throughput,
                      const std::string& description)
-            : start_time_(start_time), 
-              stop_time_(stop_time), 
-              elapsed_time_(elapsed_time), 
+            : start_time_(start_time),
+              stop_time_(stop_time),
+              elapsed_time_(elapsed_time),
               throughput_(throughput),
               description_(description)
         {}
@@ -116,7 +109,6 @@ class IOTestResult
         std::string description_;
 };
 
-
 // Template T should be an object from type: std::chrono::duration
 template <class T> class Timer
 {
@@ -127,14 +119,14 @@ template <class T> class Timer
         void Start() {
             start_time_ = high_resolution_clock::now();
         }
-        
+
         void Stop() {
             stop_time_ = high_resolution_clock::now();
         }
 
         std::size_t ElapsedTime()
         {
-            //TODO C++17, which version exactly???: 
+            //TODO C++17, which version exactly???:
             // std::chrono::round(duration)
             // std::chrono::round<std::chrono::seconds>(stop_ - start_);
             // T elapsed_time = duration_cast<T>(dur);
@@ -144,7 +136,7 @@ template <class T> class Timer
             duration<double> dur = stop_time_ - start_time_;
             double dur_count = dur.count();
             size_t elapsed_time = 0;
- 
+
             if(std::is_same<T, std::chrono::milliseconds>::value)
                 elapsed_time = std::round(dur_count * 1000);
             else if(std::is_same<T, std::chrono::seconds>::value)
@@ -171,7 +163,6 @@ template <class T> class Timer
         high_resolution_clock::time_point stop_time_;
 };
 
-
 std::string to_datetime_str(const high_resolution_clock::time_point tp)
 {
     std::stringstream ss;
@@ -180,7 +171,6 @@ std::string to_datetime_str(const high_resolution_clock::time_point tp)
     return ss.str();
 }
 
-
 bool file_exists(const std::string& file_path)
 {
     FILE *file = fopen(file_path.c_str(), "r");
@@ -188,10 +178,9 @@ bool file_exists(const std::string& file_path)
     if(file) {
         fclose(file);
         return true;
-    } else 
+    } else
         return false;
 }
-
 
 std::size_t size_to_bytes(const std::string& size)
 {
@@ -199,7 +188,7 @@ std::size_t size_to_bytes(const std::string& size)
     const std::string regex_pattern = "^([1-9]{1}[0-9]{0,2})([KMGT]{1})$";
     std::regex regex(regex_pattern);
 
-    if(not std::regex_search(size, sm, regex)) 
+    if(not std::regex_search(size, sm, regex))
         throw std::invalid_argument("Validation of size failed: " + size);
 
     const std::size_t value = stoi(sm.str(1));
@@ -219,7 +208,6 @@ std::size_t size_to_bytes(const std::string& size)
     return bytes;
 }
 
-
 Args process_args(int argc, char *argv[])
 {
     int opt = 0;
@@ -231,18 +219,17 @@ Args process_args(int argc, char *argv[])
     Mode mode = Mode::none;
 
     std::string help_message = "USAGE:\n"
-        "-b BLOCK SIZE 1-999{KM}/1G\n"
-        "-t TOTAL SIZE 1-999{KMGT}\n"
-        "-r/w READ/WRITE MODE\n"
-        "-f FILEPATH\n"
-        "-S SEED NUMBER (optional)\n";
+                               "-b BLOCK SIZE 1-999{KM}/1G\n"
+                               "-t TOTAL SIZE 1-999{KMGT}\n"
+                               "-r/w READ/WRITE MODE\n"
+                               "-f FILEPATH\n"
+                               "-S SEED NUMBER (optional)\n";
 
     if (argc == 1)
     {
         std::cout << help_message << "\n";
         exit(0);
     }
-
 
     while((opt = getopt(argc, argv, "b:t:hrwf:S:")) != -1)
     {
@@ -281,15 +268,14 @@ Args process_args(int argc, char *argv[])
                 break;
         }
     }
-    
+
     for(; optind < argc; optind++)
         printf("extra arguments: %s\n", argv[optind]);
 
     return Args(block_size, total_size, file_path, seed, mode);
 }
 
-
-uptr_char_array create_random_block(const std::size_t block_size, 
+uptr_char_array create_random_block(const std::size_t block_size,
                                     const std::size_t seed=1)
 {
     if(seed == 0)
@@ -304,10 +290,9 @@ uptr_char_array create_random_block(const std::size_t block_size,
     return block_data_ptr;
 }
 
-
-void read_file(const uptr_char_array& block_data, 
-               const std::size_t block_size, 
-               const std::size_t count, 
+void read_file(const uptr_char_array& block_data,
+               const std::size_t block_size,
+               const std::size_t count,
                const std::string& file_path)
 {
     std::ifstream infile(file_path, std::ifstream::binary);
@@ -318,10 +303,9 @@ void read_file(const uptr_char_array& block_data,
     infile.close();
 }
 
-
 void write_file(const uptr_char_array& block_data,
                 const std::size_t block_size,
-                const std::size_t count, 
+                const std::size_t count,
                 const std::string& file_path)
 {
     std::ofstream outfile(file_path, std::ofstream::binary);
@@ -333,11 +317,10 @@ void write_file(const uptr_char_array& block_data,
     outfile.close();
 }
 
-
-IOTestResult run_seq_io_test(const std::string& block, 
-                             const std::string& total, 
-                             const std::string& file_path, 
-                             const std::string& seed, 
+IOTestResult run_seq_io_test(const std::string& block,
+                             const std::string& total,
+                             const std::string& file_path,
+                             const std::string& seed,
                              const Mode mode)
 {
     std::string description;
@@ -376,8 +359,8 @@ IOTestResult run_seq_io_test(const std::string& block,
         description = "seq_io_test-write-" + block + "-" + total;
 
         uptr_char_array block_data;
-        
-        if(seed.empty()) 
+
+        if(seed.empty())
             block_data = create_random_block(block_size);
         else
         {
@@ -390,7 +373,7 @@ IOTestResult run_seq_io_test(const std::string& block,
         write_file(block_data, block_size, count, file_path);
         timer.Stop();
     }
-    else 
+    else
         throw std::runtime_error("No valid mode detected!");
 
     elapsed_time = timer.ElapsedTime();
@@ -400,31 +383,26 @@ IOTestResult run_seq_io_test(const std::string& block,
     else
         throughput_mb_per_sec = total_size / 1000000;
 
-
-    return IOTestResult(
-        timer.start_time(), 
-        timer.stop_time(), 
-        elapsed_time, 
-        throughput_mb_per_sec,
-        description);
+    return IOTestResult(timer.start_time(),
+                        timer.stop_time(),
+                        elapsed_time,
+                        throughput_mb_per_sec,
+                        description);
 }
-
 
 int main(int argc, char *argv[])
 {
     Args args = process_args(argc, argv);
 
-    IOTestResult result = 
-        run_seq_io_test(
-            args.block_size, 
-            args.total_size, 
-            args.file_path, 
-            args.seed, 
-            args.mode);
+    IOTestResult result = run_seq_io_test(args.block_size,
+                                          args.total_size,
+                                          args.file_path,
+                                          args.seed,
+                                          args.mode);
 
-    std::cout << to_datetime_str(result.start_time()) << "|" 
-              << to_datetime_str(result.stop_time())  << "|" 
-              << result.elapsed_time()                << "|" 
+    std::cout << to_datetime_str(result.start_time()) << "|"
+              << to_datetime_str(result.stop_time())  << "|"
+              << result.elapsed_time()                << "|"
               << result.throughput()                  << "|"
               << result.description()                 << "\n";
 
