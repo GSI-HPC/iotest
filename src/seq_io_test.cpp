@@ -47,18 +47,18 @@ struct Args
 {
     const std::string block_size;
     const std::string total_size;
-    const std::string file_path;
+    const std::string filepath;
     const std::string seed;
     const Mode mode;
 
     Args(const std::string& block_size,
          const std::string& total_size,
-         const std::string& file_path,
+         const std::string& filepath,
          const std::string& seed,
          const Mode& mode)
             : block_size(block_size),
               total_size(total_size),
-              file_path(file_path),
+              filepath(filepath),
               seed(seed),
               mode(mode)
     {}
@@ -72,12 +72,14 @@ class IOTestResult
                      const high_resolution_clock::time_point& stop_time,
                      const std::size_t elapsed_time,
                      const std::size_t throughput,
-                     const std::string& description)
+                     const std::string& description,
+                     const std::string& filepath)
             : start_time_(start_time),
               stop_time_(stop_time),
               elapsed_time_(elapsed_time),
               throughput_(throughput),
-              description_(description)
+              description_(description),
+              filepath_(filepath)
         {}
 
         high_resolution_clock::time_point start_time() const {
@@ -100,6 +102,10 @@ class IOTestResult
             return description_;
         }
 
+        std::string filepath() const {
+            return filepath_;
+        }
+
     private:
 
         high_resolution_clock::time_point start_time_;
@@ -107,6 +113,7 @@ class IOTestResult
         std::size_t elapsed_time_;
         std::size_t throughput_;
         std::string description_;
+        std::string filepath_;
 };
 
 // Template T should be an object from type: std::chrono::duration
@@ -171,9 +178,9 @@ std::string to_datetime_str(const high_resolution_clock::time_point tp)
     return ss.str();
 }
 
-bool file_exists(const std::string& file_path)
+bool file_exists(const std::string& filepath)
 {
-    FILE *file = fopen(file_path.c_str(), "r");
+    FILE *file = fopen(filepath.c_str(), "r");
 
     if(file) {
         fclose(file);
@@ -214,7 +221,7 @@ Args process_args(int argc, char *argv[])
 
     std::string block_size;
     std::string total_size;
-    std::string file_path;
+    std::string filepath;
     std::string seed;
     Mode mode = Mode::none;
 
@@ -254,7 +261,7 @@ Args process_args(int argc, char *argv[])
                     throw std::invalid_argument("Mode is already set!");
                 break;
             case 'f':
-                file_path = optarg;
+                filepath = optarg;
                 break;
             case 'S':
                 seed = optarg;
@@ -272,7 +279,7 @@ Args process_args(int argc, char *argv[])
     for(; optind < argc; optind++)
         printf("extra arguments: %s\n", argv[optind]);
 
-    return Args(block_size, total_size, file_path, seed, mode);
+    return Args(block_size, total_size, filepath, seed, mode);
 }
 
 uptr_char_array create_random_block(const std::size_t block_size,
@@ -293,9 +300,9 @@ uptr_char_array create_random_block(const std::size_t block_size,
 void read_file(const uptr_char_array& block_data,
                const std::size_t block_size,
                const std::size_t count,
-               const std::string& file_path)
+               const std::string& filepath)
 {
-    std::ifstream infile(file_path, std::ifstream::binary);
+    std::ifstream infile(filepath, std::ifstream::binary);
 
     for (std::size_t i = 0; i < count; i++)
         infile.read(block_data.get(), block_size);
@@ -306,9 +313,9 @@ void read_file(const uptr_char_array& block_data,
 void write_file(const uptr_char_array& block_data,
                 const std::size_t block_size,
                 const std::size_t count,
-                const std::string& file_path)
+                const std::string& filepath)
 {
-    std::ofstream outfile(file_path, std::ofstream::binary);
+    std::ofstream outfile(filepath, std::ofstream::binary);
 
     for (std::size_t i = 0; i < count; i++)
         outfile.write(block_data.get(), block_size);
@@ -319,7 +326,7 @@ void write_file(const uptr_char_array& block_data,
 
 IOTestResult run_seq_io_test(const std::string& block,
                              const std::string& total,
-                             const std::string& file_path,
+                             const std::string& filepath,
                              const std::string& seed,
                              const Mode mode)
 {
@@ -345,13 +352,13 @@ IOTestResult run_seq_io_test(const std::string& block,
     {
         description = "seq_io_test-read-" + block + "-" + total;
 
-        if(file_exists(file_path) == false)
-            throw std::runtime_error("File not found: " + file_path);
+        if(file_exists(filepath) == false)
+            throw std::runtime_error("File not found: " + filepath);
 
         uptr_char_array block_data(new char[block_size]);
 
         timer.Start();
-        read_file(block_data, block_size, count, file_path);
+        read_file(block_data, block_size, count, filepath);
         timer.Stop();
     }
     else if(mode == Mode::write)
@@ -370,7 +377,7 @@ IOTestResult run_seq_io_test(const std::string& block,
         }
 
         timer.Start();
-        write_file(block_data, block_size, count, file_path);
+        write_file(block_data, block_size, count, filepath);
         timer.Stop();
     }
     else
@@ -387,7 +394,8 @@ IOTestResult run_seq_io_test(const std::string& block,
                         timer.stop_time(),
                         elapsed_time,
                         throughput_mb_per_sec,
-                        description);
+                        description,
+                        filepath);
 }
 
 int main(int argc, char *argv[])
@@ -396,7 +404,7 @@ int main(int argc, char *argv[])
 
     IOTestResult result = run_seq_io_test(args.block_size,
                                           args.total_size,
-                                          args.file_path,
+                                          args.filepath,
                                           args.seed,
                                           args.mode);
 
@@ -404,7 +412,9 @@ int main(int argc, char *argv[])
               << to_datetime_str(result.stop_time())  << "|"
               << result.elapsed_time()                << "|"
               << result.throughput()                  << "|"
-              << result.description()                 << "\n";
+              << result.description()                 << "|"
+              << result.filepath()                    << "|"
+              << "\n";
 
     return 0;
 }
