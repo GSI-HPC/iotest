@@ -8,7 +8,7 @@ __Motivation for Building this Library__
 * Other tools have restricted support for using greater random data blocks...
   * IOZone is restricted to 16M record size.
   * Creating random data with DD can take huge amount of time or workarounds need to be done.
-* Direct IO is not always possible e.g. on ZFS, so big record size with random bits should be used when compression is activated.
+* Direct IO is not always possible e.g. on ZFS, so big record size with random data should be used when compression is activated.
 * Random generated bits used for tests should be hardly compressible, it's creations should be fast and the data useable again.
 
 __Output Format__
