@@ -258,7 +258,7 @@ Args process_args(int argc, char *argv[])
                                "-r/w READ/WRITE MODE\n"
                                "-f FILEPATH\n"
                                "-S SEED NUMBER (optional)\n"
-                               "-y SYNC ON WRITE (optional)\n";
+                               "-Y SYNC ON WRITE (optional)\n";
 
     if(argc == 1) {
         std::cout << help_message << "\n";
@@ -266,7 +266,7 @@ Args process_args(int argc, char *argv[])
     }
 
     // A colon ':' in getopt() indicates that an argument has a parameter and is not a switch.
-    while((opt = getopt(argc, argv, "b:t:hrwf:S:y")) != -1) {
+    while((opt = getopt(argc, argv, "b:t:hrwf:S:Y")) != -1) {
 
         switch(opt) {
             case 'b':
@@ -293,7 +293,7 @@ Args process_args(int argc, char *argv[])
             case 'S':
                 seed = optarg;
                 break;
-            case 'y':
+            case 'Y':
                 sync = true;
                 break;
             case 'h':

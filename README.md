@@ -46,4 +46,5 @@ Make static build so it can be used on other machines without compiling again, b
     -r/w READ/WRITE MODE
     -f FILEPATH
     -S SEED NUMBER (optional)
+    -Y SYNC ON WRITE (optional)
 
