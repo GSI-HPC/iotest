@@ -11,6 +11,9 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
+#include <string.h>
+#include <errno.h>
+#include <fcntl.h>
 
 #define GCC_VERSION (__GNUC__ * 10000 \
                      + __GNUC_MINOR__ * 100 \
@@ -50,17 +53,20 @@ struct Args
     const std::string filepath;
     const std::string seed;
     const Mode mode;
+    const bool sync;
 
     Args(const std::string& block_size,
          const std::string& total_size,
          const std::string& filepath,
          const std::string& seed,
-         const Mode& mode)
+         const Mode& mode,
+         const bool sync)
             : block_size(block_size),
               total_size(total_size),
               filepath(filepath),
               seed(seed),
-              mode(mode)
+              mode(mode),
+              sync(sync)
     {}
 };
 
@@ -114,6 +120,26 @@ class IOTestResult
         std::size_t throughput_;
         std::string description_;
         std::string filepath_;
+};
+
+// Optional, since program creates just one file and closes the file on exit, but good practice to close file.
+// TODO Write FileHandler class if used for more test cases.
+class CloseFileHandler
+{
+    public:
+
+        CloseFileHandler(const int fd)
+            : fd(fd)
+        {}
+
+        ~CloseFileHandler()
+        {
+            if(fd > 2)
+                close(fd);
+        }
+
+    private:
+        const int fd;
 };
 
 // Template T should be an object from type: std::chrono::duration
@@ -224,24 +250,25 @@ Args process_args(int argc, char *argv[])
     std::string filepath;
     std::string seed;
     Mode mode = Mode::none;
+    bool sync = false;
 
     std::string help_message = "USAGE:\n"
                                "-b BLOCK SIZE 1-999{KM}/1G\n"
                                "-t TOTAL SIZE 1-999{KMGT}\n"
                                "-r/w READ/WRITE MODE\n"
                                "-f FILEPATH\n"
-                               "-S SEED NUMBER (optional)\n";
+                               "-S SEED NUMBER (optional)\n"
+                               "-y SYNC ON WRITE (optional)\n";
 
-    if (argc == 1)
-    {
+    if(argc == 1) {
         std::cout << help_message << "\n";
         exit(0);
     }
 
-    while((opt = getopt(argc, argv, "b:t:hrwf:S:")) != -1)
-    {
-        switch(opt)
-        {
+    // A colon ':' in getopt() indicates that an argument has a parameter and is not a switch.
+    while((opt = getopt(argc, argv, "b:t:hrwf:S:y")) != -1) {
+
+        switch(opt) {
             case 'b':
                 block_size = optarg;
                 break;
@@ -266,6 +293,9 @@ Args process_args(int argc, char *argv[])
             case 'S':
                 seed = optarg;
                 break;
+            case 'y':
+                sync = true;
+                break;
             case 'h':
                 std::cout << help_message << "\n";
                 exit(0);
@@ -279,7 +309,7 @@ Args process_args(int argc, char *argv[])
     for(; optind < argc; optind++)
         printf("extra arguments: %s\n", argv[optind]);
 
-    return Args(block_size, total_size, filepath, seed, mode);
+    return Args(block_size, total_size, filepath, seed, mode, sync);
 }
 
 uptr_char_array create_random_block(const std::size_t block_size,
@@ -291,7 +321,7 @@ uptr_char_array create_random_block(const std::size_t block_size,
     std::srand(seed);
     uptr_char_array block_data_ptr(new char[block_size]);
 
-    for (std::size_t i = 0; i < block_size; ++i)
+    for(std::size_t i = 0; i < block_size; ++i)
         block_data_ptr[i] = char(std::rand() % 256);
 
     return block_data_ptr;
@@ -302,33 +332,54 @@ void read_file(const uptr_char_array& block_data,
                const std::size_t count,
                const std::string& filepath)
 {
-    std::ifstream infile(filepath, std::ifstream::binary);
+    int fd = open(filepath.c_str(), O_RDONLY);
+    CloseFileHandler close_file(fd);
 
-    for (std::size_t i = 0; i < count; i++)
-        infile.read(block_data.get(), block_size);
+    for(std::size_t i = 0; i < count; i++) {
 
-    infile.close();
+        ssize_t file_in = read(fd, block_data.get(), block_size);
+
+        if(file_in > 0)
+            continue;
+        else if(file_in < 0)
+            throw std::runtime_error("Failed reading data block: " + std::string(strerror(errno)));
+        else
+            return;
+    }
 }
 
 void write_file(const uptr_char_array& block_data,
                 const std::size_t block_size,
                 const std::size_t count,
-                const std::string& filepath)
+                const std::string& filepath,
+                const bool sync)
 {
-    std::ofstream outfile(filepath, std::ofstream::binary);
+    int flags = O_CREAT | O_TRUNC | O_WRONLY;
 
-    for (std::size_t i = 0; i < count; i++)
-        outfile.write(block_data.get(), block_size);
+    if(sync)
+        flags = flags | O_SYNC;
 
-    outfile.flush();
-    outfile.close();
+    int fd = open(filepath.c_str(), flags, S_IRWXU);
+    CloseFileHandler close_file(fd);
+
+    if(fd < 0)
+        throw std::runtime_error("Error creating file: " + std::string(strerror(errno)));
+
+    for(std::size_t i = 0; i < count; i++) {
+
+        ssize_t file_out = write(fd, block_data.get(), block_size);
+
+        if(file_out < 0)
+            throw std::runtime_error("Failed writing data block: " + std::string(strerror(errno)));
+    }
 }
 
 IOTestResult run_seq_io_test(const std::string& block,
                              const std::string& total,
                              const std::string& filepath,
                              const std::string& seed,
-                             const Mode mode)
+                             const Mode mode,
+                             const bool sync)
 {
     std::string description;
 
@@ -348,8 +399,8 @@ IOTestResult run_seq_io_test(const std::string& block,
 
     Timer <std::chrono::seconds> timer;
 
-    if(mode == Mode::read)
-    {
+    if(mode == Mode::read) {
+
         description = "seq_io_test-read-" + block + "-" + total;
 
         if(file_exists(filepath) == false)
@@ -361,23 +412,22 @@ IOTestResult run_seq_io_test(const std::string& block,
         read_file(block_data, block_size, count, filepath);
         timer.Stop();
     }
-    else if(mode == Mode::write)
-    {
+    else if(mode == Mode::write) {
+
         description = "seq_io_test-write-" + block + "-" + total;
 
         uptr_char_array block_data;
 
         if(seed.empty())
             block_data = create_random_block(block_size);
-        else
-        {
+        else {
             char *end;
             const std::size_t seed_number = strtoull(seed.c_str(), &end, 10);
             block_data = create_random_block(block_size, seed_number);
         }
 
         timer.Start();
-        write_file(block_data, block_size, count, filepath);
+        write_file(block_data, block_size, count, filepath, sync);
         timer.Stop();
     }
     else
@@ -406,7 +456,8 @@ int main(int argc, char *argv[])
                                           args.total_size,
                                           args.filepath,
                                           args.seed,
-                                          args.mode);
+                                          args.mode,
+                                          args.sync);
 
     std::cout << to_datetime_str(result.start_time()) << "|"
               << to_datetime_str(result.stop_time())  << "|"
