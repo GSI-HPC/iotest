@@ -301,13 +301,16 @@ Args process_args(int argc, char *argv[])
                 exit(0);
                 break;
             case '?':
-                printf("unknown option: %c\n", optopt);
+                throw std::invalid_argument("Unknown option: " + std::to_string(optopt));
                 break;
         }
     }
 
     for(; optind < argc; optind++)
-        printf("extra arguments: %s\n", argv[optind]);
+        printf("Extra arguments: %s\n", argv[optind]);
+
+    if(sync && mode != Mode::write)
+        throw std::invalid_argument("Sync flag is only allowed with write mode enabled.");
 
     return Args(block_size, total_size, filepath, seed, mode, sync);
 }
