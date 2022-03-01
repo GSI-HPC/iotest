@@ -49,14 +49,14 @@ struct Args
     const std::string block_size;
     const std::string total_size;
     const std::string filepath;
-    const std::string seed;
+    const int seed;
     const Mode mode;
     const bool sync_write;
 
     Args(const std::string& block_size,
          const std::string& total_size,
          const std::string& filepath,
-         const std::string& seed,
+         const int seed,
          const Mode& mode,
          const bool sync_write)
             : block_size(block_size),
@@ -246,7 +246,7 @@ Args process_args(int argc, char *argv[])
     std::string block_size;
     std::string total_size;
     std::string filepath;
-    std::string seed;
+    int seed = 0;
     Mode mode = Mode::none;
     bool sync_write = false;
 
@@ -289,7 +289,7 @@ Args process_args(int argc, char *argv[])
                 filepath = optarg;
                 break;
             case 'S':
-                seed = optarg;
+                seed = std::atoi(optarg);
                 break;
             case 'Y':
                 sync_write = true;
@@ -354,7 +354,7 @@ void read_file(const std::size_t block_size,
 void write_file(const std::size_t block_size,
                 const std::size_t total_size,
                 const std::string& filepath,
-                const std::string& seed,
+                const int seed,
                 const bool sync_write)
 {
     int flags = O_CREAT | O_TRUNC | O_WRONLY;
@@ -370,13 +370,10 @@ void write_file(const std::size_t block_size,
 
     uptr_char_array block_data;
 
-    if(seed.empty())
+    if(seed == 0)
         block_data = create_random_block(block_size);
-    else {
-        char *end;
-        const std::size_t seed_number = strtoull(seed.c_str(), &end, 10);
-        block_data = create_random_block(block_size, seed_number);
-    }
+    else
+        block_data = create_random_block(block_size, seed);
 
     const std::size_t count = total_size / block_size;
 
@@ -392,7 +389,7 @@ void write_file(const std::size_t block_size,
 IOTestResult run_seq_io_test(const std::string& block,
                              const std::string& total,
                              const std::string& filepath,
-                             const std::string& seed,
+                             const int seed,
                              const Mode mode,
                              const bool sync_write)
 {
