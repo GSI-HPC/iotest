@@ -21,8 +21,6 @@
 
 #if GCC_VERSION < 40900
     #error "GCC version should be greater than 4.9.0 for regex support!"
-#elif GCC_VERSION < 60300
-    # warning "GCC version less than 6.3.0 is not tested but might work..."
 #endif
 
 using namespace std::chrono;
