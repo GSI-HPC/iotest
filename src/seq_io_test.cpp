@@ -328,13 +328,15 @@ uptr_char_array create_random_block(const std::size_t block_size,
     return block_data_ptr;
 }
 
-void read_file(const uptr_char_array& block_data,
-               const std::size_t block_size,
-               const std::size_t count,
+void read_file(const std::size_t block_size,
+               const std::size_t total_size,
                const std::string& filepath)
 {
     int fd = open(filepath.c_str(), O_RDONLY);
     CloseFileHandler close_file(fd);
+
+    uptr_char_array block_data(new char[block_size]);
+    const std::size_t count = total_size / block_size;
 
     for(std::size_t i = 0; i < count; i++) {
 
@@ -349,10 +351,10 @@ void read_file(const uptr_char_array& block_data,
     }
 }
 
-void write_file(const uptr_char_array& block_data,
-                const std::size_t block_size,
-                const std::size_t count,
+void write_file(const std::size_t block_size,
+                const std::size_t total_size,
                 const std::string& filepath,
+                const std::string& seed,
                 const bool sync_write)
 {
     int flags = O_CREAT | O_TRUNC | O_WRONLY;
@@ -365,6 +367,18 @@ void write_file(const uptr_char_array& block_data,
 
     if(fd < 0)
         throw std::runtime_error("Error creating file: " + std::string(strerror(errno)));
+
+    uptr_char_array block_data;
+
+    if(seed.empty())
+        block_data = create_random_block(block_size);
+    else {
+        char *end;
+        const std::size_t seed_number = strtoull(seed.c_str(), &end, 10);
+        block_data = create_random_block(block_size, seed_number);
+    }
+
+    const std::size_t count = total_size / block_size;
 
     for(std::size_t i = 0; i < count; i++) {
 
@@ -392,8 +406,6 @@ IOTestResult run_seq_io_test(const std::string& block,
     if(total_size % block_size)
         throw std::runtime_error("Block size must be multiple of total size!");
 
-    const std::size_t count = total_size / block_size;
-
     std::size_t elapsed_time = 0;
     std::size_t throughput_mb_per_sec = 0;
 
@@ -406,10 +418,8 @@ IOTestResult run_seq_io_test(const std::string& block,
 
         description = "sequential-read-" + block + "-" + total;
 
-        uptr_char_array block_data(new char[block_size]);
-
         timer.Start();
-        read_file(block_data, block_size, count, filepath);
+        read_file(block_size, total_size, filepath);
         timer.Stop();
 
     } else if(mode == Mode::write) {
@@ -419,18 +429,8 @@ IOTestResult run_seq_io_test(const std::string& block,
         else
             description = "sequential-write-" + block + "-" + total;
 
-        uptr_char_array block_data;
-
-        if(seed.empty())
-            block_data = create_random_block(block_size);
-        else {
-            char *end;
-            const std::size_t seed_number = strtoull(seed.c_str(), &end, 10);
-            block_data = create_random_block(block_size, seed_number);
-        }
-
         timer.Start();
-        write_file(block_data, block_size, count, filepath, sync_write);
+        write_file(block_size, total_size, filepath, seed, sync_write);
         timer.Stop();
 
     } else
