@@ -402,7 +402,7 @@ IOTestResult run_seq_io_test(const std::string& block,
 
     if(mode == Mode::read) {
 
-        description = "seq_io_test-read-" + block + "-" + total;
+        description = "sequential-read-" + block + "-" + total;
 
         if(file_exists(filepath) == false)
             throw std::runtime_error("File not found: " + filepath);
@@ -412,10 +412,13 @@ IOTestResult run_seq_io_test(const std::string& block,
         timer.Start();
         read_file(block_data, block_size, count, filepath);
         timer.Stop();
-    }
-    else if(mode == Mode::write) {
 
-        description = "seq_io_test-write-" + block + "-" + total;
+    } else if(mode == Mode::write) {
+
+        if(sync)
+            description = "sequential-sync-write-" + block + "-" + total;
+        else
+            description = "sequential-write-" + block + "-" + total;
 
         uptr_char_array block_data;
 
@@ -430,8 +433,8 @@ IOTestResult run_seq_io_test(const std::string& block,
         timer.Start();
         write_file(block_data, block_size, count, filepath, sync);
         timer.Stop();
-    }
-    else
+
+    } else
         throw std::runtime_error("No valid mode detected!");
 
     elapsed_time = timer.ElapsedTime();
