@@ -51,20 +51,20 @@ struct Args
     const std::string filepath;
     const std::string seed;
     const Mode mode;
-    const bool sync;
+    const bool sync_write;
 
     Args(const std::string& block_size,
          const std::string& total_size,
          const std::string& filepath,
          const std::string& seed,
          const Mode& mode,
-         const bool sync)
+         const bool sync_write)
             : block_size(block_size),
               total_size(total_size),
               filepath(filepath),
               seed(seed),
               mode(mode),
-              sync(sync)
+              sync_write(sync_write)
     {}
 };
 
@@ -248,7 +248,7 @@ Args process_args(int argc, char *argv[])
     std::string filepath;
     std::string seed;
     Mode mode = Mode::none;
-    bool sync = false;
+    bool sync_write = false;
 
     std::string help_message = "USAGE:\n"
                                "-b BLOCK SIZE 1-999{KM}/1G\n"
@@ -292,7 +292,7 @@ Args process_args(int argc, char *argv[])
                 seed = optarg;
                 break;
             case 'Y':
-                sync = true;
+                sync_write = true;
                 break;
             case 'h':
                 std::cout << help_message << "\n";
@@ -307,10 +307,10 @@ Args process_args(int argc, char *argv[])
     for(; optind < argc; optind++)
         printf("Extra arguments: %s\n", argv[optind]);
 
-    if(sync && mode != Mode::write)
+    if(sync_write && mode != Mode::write)
         throw std::invalid_argument("Sync flag is only allowed with write mode enabled.");
 
-    return Args(block_size, total_size, filepath, seed, mode, sync);
+    return Args(block_size, total_size, filepath, seed, mode, sync_write);
 }
 
 uptr_char_array create_random_block(const std::size_t block_size,
@@ -353,11 +353,11 @@ void write_file(const uptr_char_array& block_data,
                 const std::size_t block_size,
                 const std::size_t count,
                 const std::string& filepath,
-                const bool sync)
+                const bool sync_write)
 {
     int flags = O_CREAT | O_TRUNC | O_WRONLY;
 
-    if(sync)
+    if(sync_write)
         flags = flags | O_SYNC;
 
     int fd = open(filepath.c_str(), flags, S_IRWXU);
@@ -380,10 +380,9 @@ IOTestResult run_seq_io_test(const std::string& block,
                              const std::string& filepath,
                              const std::string& seed,
                              const Mode mode,
-                             const bool sync)
+                             const bool sync_write)
 {
     std::string description;
-
     std::size_t block_size = size_to_bytes(block);
     std::size_t total_size = size_to_bytes(total);
 
@@ -402,10 +401,10 @@ IOTestResult run_seq_io_test(const std::string& block,
 
     if(mode == Mode::read) {
 
-        description = "sequential-read-" + block + "-" + total;
-
         if(file_exists(filepath) == false)
             throw std::runtime_error("File not found: " + filepath);
+
+        description = "sequential-read-" + block + "-" + total;
 
         uptr_char_array block_data(new char[block_size]);
 
@@ -415,7 +414,7 @@ IOTestResult run_seq_io_test(const std::string& block,
 
     } else if(mode == Mode::write) {
 
-        if(sync)
+        if(sync_write)
             description = "sequential-sync-write-" + block + "-" + total;
         else
             description = "sequential-write-" + block + "-" + total;
@@ -431,7 +430,7 @@ IOTestResult run_seq_io_test(const std::string& block,
         }
 
         timer.Start();
-        write_file(block_data, block_size, count, filepath, sync);
+        write_file(block_data, block_size, count, filepath, sync_write);
         timer.Stop();
 
     } else
@@ -461,7 +460,7 @@ int main(int argc, char *argv[])
                                           args.filepath,
                                           args.seed,
                                           args.mode,
-                                          args.sync);
+                                          args.sync_write);
 
     std::cout << to_datetime_str(result.start_time()) << "|"
               << to_datetime_str(result.stop_time())  << "|"
