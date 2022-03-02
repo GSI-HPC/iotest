@@ -246,7 +246,7 @@ Args process_args(int argc, char *argv[])
     std::string block_size;
     std::string total_size;
     std::string filepath;
-    int seed = 0;
+    int seed = 1;
     Mode mode = Mode::none;
     bool sync_write = false;
 
@@ -314,10 +314,10 @@ Args process_args(int argc, char *argv[])
 }
 
 uptr_char_array create_random_block(const std::size_t block_size,
-                                    const std::size_t seed=1)
+                                    const std::size_t seed)
 {
-    if(seed == 0)
-        throw std::runtime_error("bad seed: " + std::to_string(seed));
+    if(seed < 1)
+        throw std::runtime_error("Bad seed: " + std::to_string(seed));
 
     std::srand(seed);
     uptr_char_array block_data_ptr(new char[block_size]);
@@ -370,10 +370,7 @@ void write_file(const std::size_t block_size,
 
     uptr_char_array block_data;
 
-    if(seed == 0)
-        block_data = create_random_block(block_size);
-    else
-        block_data = create_random_block(block_size, seed);
+    block_data = create_random_block(block_size, seed);
 
     const std::size_t count = total_size / block_size;
 
