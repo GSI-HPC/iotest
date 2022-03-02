@@ -49,7 +49,7 @@ struct Args
     const std::string block_size;
     const std::string total_size;
     const std::string filepath;
-    const int seed;
+    const unsigned seed;
     const Mode mode;
     const bool sync_write;
 
@@ -246,7 +246,7 @@ Args process_args(int argc, char *argv[])
     std::string block_size;
     std::string total_size;
     std::string filepath;
-    int seed = 1;
+    unsigned seed = 1;
     Mode mode = Mode::none;
     bool sync_write = false;
 
@@ -289,7 +289,9 @@ Args process_args(int argc, char *argv[])
                 filepath = optarg;
                 break;
             case 'S':
-                seed = std::atoi(optarg);
+                seed = unsigned(std::atoi(optarg));
+                if(seed == 0)
+                    throw std::runtime_error("Bad seed: " + std::to_string(seed));
                 break;
             case 'Y':
                 sync_write = true;
@@ -314,11 +316,8 @@ Args process_args(int argc, char *argv[])
 }
 
 uptr_char_array create_random_block(const std::size_t block_size,
-                                    const std::size_t seed)
+                                    const unsigned seed)
 {
-    if(seed < 1)
-        throw std::runtime_error("Bad seed: " + std::to_string(seed));
-
     std::srand(seed);
     uptr_char_array block_data_ptr(new char[block_size]);
 
@@ -354,7 +353,7 @@ void read_file(const std::size_t block_size,
 void write_file(const std::size_t block_size,
                 const std::size_t total_size,
                 const std::string& filepath,
-                const int seed,
+                const unsigned seed,
                 const bool sync_write)
 {
     int flags = O_CREAT | O_TRUNC | O_WRONLY;
@@ -386,7 +385,7 @@ void write_file(const std::size_t block_size,
 IOTestResult run_seq_io_test(const std::string& block,
                              const std::string& total,
                              const std::string& filepath,
-                             const int seed,
+                             const unsigned seed,
                              const Mode mode,
                              const bool sync_write)
 {
