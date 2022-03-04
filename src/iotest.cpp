@@ -238,8 +238,8 @@ Args process_args(int argc, char *argv[])
     std::string block_size;
     std::string total_size;
     std::string filepath;
-    unsigned seed = 1;
     Mode mode = Mode::none;
+    unsigned seed = 1;
     bool sync_write = false;
 
     std::string help_message = "USAGE:\n"
@@ -251,8 +251,8 @@ Args process_args(int argc, char *argv[])
                                "   * -R RANDOM READ\n"
                                "   * -W RANDOM WRITE\n"
                                "-f FILEPATH\n"
-                               "-S SEED NUMBER (optional)\n"
-                               "-Y SYNC ON WRITE (optional)\n";
+                               "-S SEED\n"
+                               "-Y SYNC ON WRITE\n";
 
     if(argc == 1) {
         std::cout << help_message << "\n";
@@ -323,10 +323,8 @@ Args process_args(int argc, char *argv[])
     return Args(block_size, total_size, filepath, seed, mode, sync_write);
 }
 
-uptr_char_array create_random_block(const std::size_t block_size,
-                                    const unsigned seed)
+uptr_char_array create_random_block(const std::size_t block_size)
 {
-    std::srand(seed);
     uptr_char_array block_data_ptr(new char[block_size]);
 
     for(std::size_t i = 0; i < block_size; ++i)
@@ -343,30 +341,30 @@ void read_file(const std::size_t block_size,
     int fd = open(filepath.c_str(), O_RDONLY);
     CloseFileHandler close_file(fd);
 
+    if(fd < 0)
+        throw std::runtime_error("Error opening file: " + std::string(strerror(errno)));
+
     uptr_char_array block_data(new char[block_size]);
     const std::size_t count = total_size / block_size;
 
     std::size_t seek_pos = -1;
 
-    if(enable_random)
-        std::srand(1);
-
     for(std::size_t i = 0; i < count; i++) {
+
+        if(enable_random) {
+
+            seek_pos = (total_size / ((std::rand() % count) + 1)) - block_size;
+            off_t offset = lseek(fd, seek_pos, SEEK_SET);
+
+            if(offset == -1)
+                throw std::runtime_error("Failed to seek: " + std::string(strerror(errno)));
+        }
 
         ssize_t file_in = read(fd, block_data.get(), block_size);
 
-        if(file_in > 0) {
-
-            if(enable_random) {
-
-                seek_pos = (total_size / ((std::rand() % count) + 1)) - block_size;
-                off_t offset = lseek(fd, seek_pos, SEEK_SET);
-
-                if(offset == -1)
-                    throw std::runtime_error("Failed to seek: " + std::string(strerror(errno)));
-            }
-
-        } else if(file_in < 0)
+        if(file_in > 0)
+            continue;
+        else if(file_in < 0)
             throw std::runtime_error("Failed reading data block: " + std::string(strerror(errno)));
         else
             return;
@@ -376,10 +374,13 @@ void read_file(const std::size_t block_size,
 void write_file(const std::size_t block_size,
                 const std::size_t total_size,
                 const std::string& filepath,
-                const unsigned seed,
-                const bool sync_write)
+                const bool sync_write,
+                const bool enable_random)
 {
-    int flags = O_CREAT | O_TRUNC | O_WRONLY;
+    int flags = O_WRONLY;
+
+    if(enable_random == false)
+        flags = flags | O_CREAT | O_TRUNC | O_APPEND;
 
     if(sync_write)
         flags = flags | O_SYNC;
@@ -388,15 +389,23 @@ void write_file(const std::size_t block_size,
     CloseFileHandler close_file(fd);
 
     if(fd < 0)
-        throw std::runtime_error("Error creating file: " + std::string(strerror(errno)));
+        throw std::runtime_error("Error opening file: " + std::string(strerror(errno)));
 
-    uptr_char_array block_data;
-
-    block_data = create_random_block(block_size, seed);
-
+    uptr_char_array block_data = create_random_block(block_size);
     const std::size_t count = total_size / block_size;
 
+    std::size_t seek_pos = -1;
+
     for(std::size_t i = 0; i < count; i++) {
+
+        if(enable_random) {
+
+            seek_pos = (total_size / ((std::rand() % count) + 1)) - block_size;
+            off_t offset = lseek(fd, seek_pos, SEEK_SET);
+
+            if(offset == -1)
+                throw std::runtime_error("Failed to seek: " + std::string(strerror(errno)));
+        }
 
         ssize_t file_out = write(fd, block_data.get(), block_size);
 
@@ -427,6 +436,8 @@ IOTestResult run_io_test(const std::string& block,
 
     Timer <std::chrono::seconds> timer;
 
+    std::srand(seed);
+
     if(mode == Mode::sequential_read) {
 
         if(file_exists(filepath) == false)
@@ -446,7 +457,7 @@ IOTestResult run_io_test(const std::string& block,
             description = "sequential-write-" + block + "-" + total;
 
         timer.Start();
-        write_file(block_size, total_size, filepath, seed, sync_write);
+        write_file(block_size, total_size, filepath, sync_write, false);
         timer.Stop();
 
     } else if(mode == Mode::random_read) {
@@ -469,6 +480,10 @@ IOTestResult run_io_test(const std::string& block,
             description = "random-sync-write-" + block + "-" + total;
         else
             description = "random-write-" + block + "-" + total;
+
+        timer.Start();
+        write_file(block_size, total_size, filepath, sync_write, true);
+        timer.Stop();
 
     } else
         throw std::runtime_error("No valid mode detected!");
