@@ -1,6 +1,6 @@
 # iotest
 
-__Motivation for Building this Library__
+## Motivation
 
 * One tool for different use cases.
 * Different test tools should provide same output format.
@@ -11,40 +11,41 @@ __Motivation for Building this Library__
 * Direct IO is not always possible e.g. on ZFS, so big record size with random data should be used when compression is activated.
 * Random generated data used for tests should be hardly compressible, it's creations should be fast and the data useable again.
 
-__Output Format__
-
-Fields:  
-* start_timestamp (format: "YYYY-MM-DD HH:MM:SS")
-* end_timestamp (format: "YYYY-MM-DD HH:MM:SS")
-* elapsed_time (seconds)
-* throughput (MB/s) 
-* description (depending on the test some meta infromation is provided)
-
-The output fields are pipe separated e.g.:  
-
-    2020-10-26 11:40:17|2020-10-26 11:40:17|0|10|seq_io_test-write-1M-10M
-
-## Sequential IO Test (seq\_io\_test)
-
-Write or read a total size with a given block size to or from a file.  
-no count must be specified, since the count is calculated from the total and block size  
-(block size must be multiple of the total size).
-
-### Build
+## Build
 
 Make static build so it can be used on other machines without compiling again, but with same architecture:  
 
-`g++ src/seq_io_test.cpp -o bin/seq_io_test -ansi -pedantic -Wall -Wextra -std=c++11 --static`
+`g++ src/iotest.cpp -o bin/iotest -ansi -pedantic -Wall -Wextra -std=c++11 --static`
 
-### Usage
+## Usage
 
-`./bin/seq_io_test -h`  
+`./bin/iotest -h`  
 
-    USAGE:
-    -b BLOCK SIZE 1-999{KM}/1G
-    -t TOTAL SIZE 1-999{KMGT}
-    -r/w READ/WRITE MODE
-    -f FILEPATH
-    -S SEED NUMBER (optional)
-    -Y SYNC ON WRITE (optional)
+```
+USAGE:
+-b BLOCK SIZE 1-999{KM}/1G
+-t TOTAL SIZE 1-999{KMGT}
+IO MODES:
+   * -r SEQUENTIAL READ
+   * -w SEQUENTIAL WRITE
+   * -R RANDOM READ
+   * -W RANDOM WRITE
+-f FILEPATH
+-S SEED
+-Y SYNC ON WRITE
+```
 
+## Output Format
+
+Fields:  
+* start\_timestamp (format: "YYYY-MM-DD HH:MM:SS")
+* end\_timestamp (format: "YYYY-MM-DD HH:MM:SS")
+* elapsed\_time (seconds)
+* throughput (MB/s) 
+* description (depending on the test some meta infromation is provided)
+
+The output fields are pipe separated:  
+
+```
+2022-03-04 12:03:56|2022-03-04 12:05:09|73|14|sequential-sync-write-1M-1G|/media/hdd/test.tmp|
+```
