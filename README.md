@@ -35,6 +35,9 @@ IO MODES:
 -Y SYNC ON WRITE
 ```
 
+For random write mode other seed should be used rather than used for sequential write with same block size,  
+otherwise same block data will be written, which might be optimized on writes.
+
 ## Output Format
 
 Fields:  
