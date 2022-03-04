@@ -29,20 +29,12 @@ typedef std::unique_ptr<char[]> uptr_char_array;
 
 enum class Mode: char
 {
-    none = 'x',
-    read ='r',
-    write ='w'
+    none             = 'x',
+    sequential_read  = 'r',
+    sequential_write = 'w',
+    random_read      = 'R',
+    random_write     = 'W'
 };
-
-std::string modeToString(const Mode m)
-{
-    if(m == Mode::read)
-        return "READ";
-    else if(m == Mode::write)
-        return "WRITE";
-    else
-        return "NONE";
-}
 
 struct Args
 {
@@ -253,7 +245,11 @@ Args process_args(int argc, char *argv[])
     std::string help_message = "USAGE:\n"
                                "-b BLOCK SIZE 1-999{KM}/1G\n"
                                "-t TOTAL SIZE 1-999{KMGT}\n"
-                               "-r/w READ/WRITE MODE\n"
+                               "IO MODES:\n"
+                               "   * -r SEQUENTIAL READ\n"
+                               "   * -w SEQUENTIAL WRITE\n"
+                               "   * -R RANDOM READ\n"
+                               "   * -W RANDOM WRITE\n"
                                "-f FILEPATH\n"
                                "-S SEED NUMBER (optional)\n"
                                "-Y SYNC ON WRITE (optional)\n";
@@ -264,7 +260,7 @@ Args process_args(int argc, char *argv[])
     }
 
     // A colon ':' in getopt() indicates that an argument has a parameter and is not a switch.
-    while((opt = getopt(argc, argv, "b:t:hrwf:S:Y")) != -1) {
+    while((opt = getopt(argc, argv, "b:t:hrwRWf:S:Y")) != -1) {
 
         switch(opt) {
             case 'b':
@@ -275,13 +271,25 @@ Args process_args(int argc, char *argv[])
                 break;
             case 'r':
                 if(mode == Mode::none)
-                    mode = Mode::read;
+                    mode = Mode::sequential_read;
                 else
                     throw std::invalid_argument("Mode is already set!");
                 break;
             case 'w':
                 if(mode == Mode::none)
-                    mode = Mode::write;
+                    mode = Mode::sequential_write;
+                else
+                    throw std::invalid_argument("Mode is already set!");
+                break;
+            case 'R':
+                if(mode == Mode::none)
+                    mode = Mode::random_read;
+                else
+                    throw std::invalid_argument("Mode is already set!");
+                break;
+            case 'W':
+                if(mode == Mode::none)
+                    mode = Mode::random_write;
                 else
                     throw std::invalid_argument("Mode is already set!");
                 break;
@@ -309,8 +317,8 @@ Args process_args(int argc, char *argv[])
     for(; optind < argc; optind++)
         printf("Extra arguments: %s\n", argv[optind]);
 
-    if(sync_write && mode != Mode::write)
-        throw std::invalid_argument("Sync flag is only allowed with write mode enabled.");
+    if(sync_write && (mode == Mode::sequential_read || mode == Mode::random_read))
+        throw std::invalid_argument("Sync flag is only allowed with a write mode enabled.");
 
     return Args(block_size, total_size, filepath, seed, mode, sync_write);
 }
@@ -329,7 +337,8 @@ uptr_char_array create_random_block(const std::size_t block_size,
 
 void read_file(const std::size_t block_size,
                const std::size_t total_size,
-               const std::string& filepath)
+               const std::string& filepath,
+               const bool enable_random)
 {
     int fd = open(filepath.c_str(), O_RDONLY);
     CloseFileHandler close_file(fd);
@@ -337,13 +346,27 @@ void read_file(const std::size_t block_size,
     uptr_char_array block_data(new char[block_size]);
     const std::size_t count = total_size / block_size;
 
+    std::size_t seek_pos = -1;
+
+    if(enable_random)
+        std::srand(1);
+
     for(std::size_t i = 0; i < count; i++) {
 
         ssize_t file_in = read(fd, block_data.get(), block_size);
 
-        if(file_in > 0)
-            continue;
-        else if(file_in < 0)
+        if(file_in > 0) {
+
+            if(enable_random) {
+
+                seek_pos = (total_size / ((std::rand() % count) + 1)) - block_size;
+                off_t offset = lseek(fd, seek_pos, SEEK_SET);
+
+                if(offset == -1)
+                    throw std::runtime_error("Failed to seek: " + std::string(strerror(errno)));
+            }
+
+        } else if(file_in < 0)
             throw std::runtime_error("Failed reading data block: " + std::string(strerror(errno)));
         else
             return;
@@ -382,12 +405,12 @@ void write_file(const std::size_t block_size,
     }
 }
 
-IOTestResult run_seq_io_test(const std::string& block,
-                             const std::string& total,
-                             const std::string& filepath,
-                             const unsigned seed,
-                             const Mode mode,
-                             const bool sync_write)
+IOTestResult run_io_test(const std::string& block,
+                         const std::string& total,
+                         const std::string& filepath,
+                         const unsigned seed,
+                         const Mode mode,
+                         const bool sync_write)
 {
     std::string description;
     std::size_t block_size = size_to_bytes(block);
@@ -404,7 +427,7 @@ IOTestResult run_seq_io_test(const std::string& block,
 
     Timer <std::chrono::seconds> timer;
 
-    if(mode == Mode::read) {
+    if(mode == Mode::sequential_read) {
 
         if(file_exists(filepath) == false)
             throw std::runtime_error("File not found: " + filepath);
@@ -412,10 +435,10 @@ IOTestResult run_seq_io_test(const std::string& block,
         description = "sequential-read-" + block + "-" + total;
 
         timer.Start();
-        read_file(block_size, total_size, filepath);
+        read_file(block_size, total_size, filepath, false);
         timer.Stop();
 
-    } else if(mode == Mode::write) {
+    } else if(mode == Mode::sequential_write) {
 
         if(sync_write)
             description = "sequential-sync-write-" + block + "-" + total;
@@ -425,6 +448,27 @@ IOTestResult run_seq_io_test(const std::string& block,
         timer.Start();
         write_file(block_size, total_size, filepath, seed, sync_write);
         timer.Stop();
+
+    } else if(mode == Mode::random_read) {
+
+        if(file_exists(filepath) == false)
+            throw std::runtime_error("File not found: " + filepath);
+
+        description = "random-read-" + block + "-" + total;
+
+        timer.Start();
+        read_file(block_size, total_size, filepath, true);
+        timer.Stop();
+
+    } else if(mode == Mode::random_write) {
+
+        if(file_exists(filepath) == false)
+            throw std::runtime_error("File not found: " + filepath);
+
+        if(sync_write)
+            description = "random-sync-write-" + block + "-" + total;
+        else
+            description = "random-write-" + block + "-" + total;
 
     } else
         throw std::runtime_error("No valid mode detected!");
@@ -448,12 +492,12 @@ int main(int argc, char *argv[])
 {
     Args args = process_args(argc, argv);
 
-    IOTestResult result = run_seq_io_test(args.block_size,
-                                          args.total_size,
-                                          args.filepath,
-                                          args.seed,
-                                          args.mode,
-                                          args.sync_write);
+    IOTestResult result = run_io_test(args.block_size,
+                                      args.total_size,
+                                      args.filepath,
+                                      args.seed,
+                                      args.mode,
+                                      args.sync_write);
 
     std::cout << to_datetime_str(result.start_time()) << "|"
               << to_datetime_str(result.stop_time())  << "|"
