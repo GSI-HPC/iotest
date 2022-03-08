@@ -13,13 +13,15 @@
 
 ## Build
 
-Make static build so it can be used on other machines without compiling again, but with same architecture:  
+Make static build so it can be used on other machines without compiling again, but with same architecture:
 
 `g++ src/iotest.cpp -o bin/iotest -ansi -pedantic -Wall -Wextra -std=c++11 --static`
 
 ## Usage
 
-`./bin/iotest -h`  
+### Help
+
+`./bin/iotest -h`
 
 ```
 USAGE:
@@ -31,23 +33,29 @@ IO MODES:
    * -R RANDOM READ
    * -W RANDOM WRITE
 -f FILEPATH
--S SEED
--Y SYNC ON WRITE
+-s SEED NUMBER
+-y SYNC ON WRITE
 ```
 
-For random write mode other seed should be used rather than used for sequential write with same block size,  
+### Example for Synchronous Sequential Write
+
+`./bin/iotest -w -y -b 1M -t 1G -f /media/hdd/test.tmp`
+
+Note:
+
+For random write mode other seed should be used rather than used for sequential write with same block size,
 otherwise same block data will be written, which might be optimized on writes.
 
 ## Output Format
 
-Fields:  
+Fields:
 * start\_timestamp (format: "YYYY-MM-DD HH:MM:SS")
 * end\_timestamp (format: "YYYY-MM-DD HH:MM:SS")
 * elapsed\_time (seconds)
-* throughput (MB/s) 
+* throughput (MB/s)
 * description (depending on the test some meta infromation is provided)
 
-The output fields are pipe separated:  
+The output fields are pipe separated:
 
 ```
 2022-03-04 12:03:56|2022-03-04 12:05:09|73|14|sequential-sync-write-1M-1G|/media/hdd/test.tmp|

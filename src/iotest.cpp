@@ -253,8 +253,8 @@ Args process_args(int argc, char *argv[])
                                "   * -R RANDOM READ\n"
                                "   * -W RANDOM WRITE\n"
                                "-f FILEPATH\n"
-                               "-S SEED\n"
-                               "-Y SYNC ON WRITE\n";
+                               "-s SEED NUMBER\n"
+                               "-y SYNC ON WRITE\n";
 
     if(argc == 1) {
         std::cout << help_message << "\n";
@@ -262,7 +262,7 @@ Args process_args(int argc, char *argv[])
     }
 
     // A colon ':' in getopt() indicates that an argument has a parameter and is not a switch.
-    while((opt = getopt(argc, argv, "b:t:hrwRWf:S:Y")) != -1) {
+    while((opt = getopt(argc, argv, "b:t:hrwRWf:s:y")) != -1) {
 
         switch(opt) {
             case 'b':
@@ -298,12 +298,12 @@ Args process_args(int argc, char *argv[])
             case 'f':
                 filepath = optarg;
                 break;
-            case 'S':
+            case 's':
                 seed = unsigned(std::atoi(optarg));
                 if(seed == 0)
                     throw std::runtime_error("Bad seed: " + std::to_string(seed));
                 break;
-            case 'Y':
+            case 'y':
                 sync_write = true;
                 break;
             case 'h':
