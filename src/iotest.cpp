@@ -208,7 +208,7 @@ bool file_exists(const std::string& filepath)
 std::size_t size_to_bytes(const std::string& size)
 {
     std::smatch sm;
-    const std::string regex_pattern = "^([1-9]{1}[0-9]{0,2})([KMGT]{1})$";
+    const std::string regex_pattern = "^([1-9]{1}[0-9]{0,2})([BKMGT]{1})$";
     std::regex regex(regex_pattern);
 
     if(not std::regex_search(size, sm, regex))
@@ -219,7 +219,9 @@ std::size_t size_to_bytes(const std::string& size)
 
     std::size_t bytes = 0;
 
-    if(unit == 'K')
+    if(unit == 'B')
+        bytes = value;
+    else if(unit == 'K')
         bytes = value * 1024;
     else if(unit == 'M')
         bytes = value * 1048576;
@@ -345,7 +347,9 @@ void read_file(const std::size_t block_size,
         throw std::runtime_error("Error opening file: " + std::string(strerror(errno)));
 
     uptr_char_array block_data(new char[block_size]);
+
     const std::size_t count = total_size / block_size;
+    const std::size_t limit = total_size - block_size;
 
     std::size_t seek_pos = -1;
 
@@ -353,7 +357,7 @@ void read_file(const std::size_t block_size,
 
         if(enable_random) {
 
-            seek_pos = (total_size / ((std::rand() % count) + 1)) - block_size;
+            seek_pos = std::rand() % (limit+1);
             off_t offset = lseek(fd, seek_pos, SEEK_SET);
 
             if(offset == -1)
@@ -392,7 +396,9 @@ void write_file(const std::size_t block_size,
         throw std::runtime_error("Error opening file: " + std::string(strerror(errno)));
 
     uptr_char_array block_data = create_random_block(block_size);
+
     const std::size_t count = total_size / block_size;
+    const std::size_t limit = total_size - block_size;
 
     std::size_t seek_pos = -1;
 
@@ -400,7 +406,7 @@ void write_file(const std::size_t block_size,
 
         if(enable_random) {
 
-            seek_pos = (total_size / ((std::rand() % count) + 1)) - block_size;
+            seek_pos = std::rand() % (limit+1);
             off_t offset = lseek(fd, seek_pos, SEEK_SET);
 
             if(offset == -1)
