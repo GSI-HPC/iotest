@@ -6,11 +6,11 @@
 * Simple output format to parse for further analysis.
 * Creating own tests for better understanding how IO works.
 * Other tools have restricted support for using greater random data blocks...
-  * IOZone is restricted to 16M record size.
+  * IOzone is restricted to 16M record size.
   * Creating random data with DD can take huge amount of time or workarounds need to be done.
 * Direct IO is not always possible e.g. on ZFS, so big record size with random data should be used when compression is activated.
 * Random generated data used for tests should be hardly compressible, it's creations should be fast and the data useable again.
-* iozone always makes a write+rewrite on a specific filepath (on Lustre a rewrite will create a new file instead keeping the IO on the previous specified stripe settings for first created file).
+* IOzone always makes a write+rewrite on a specific filepath (on Lustre a rewrite will create a new file instead keeping the IO on the previous specified stripe settings for first created file).
 * fio creates new file, which will drop previous specified stripping information of a file and most likely result in a file on a different OST. 
 
 ## Build
