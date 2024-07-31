@@ -359,6 +359,8 @@ void read_file(const std::size_t block_size,
     const std::size_t count = total_size / block_size;
     const std::size_t limit = total_size - block_size;
 
+    const std::size_t rest_size = total_size % block_size;
+
     std::size_t seek_pos = -1;
 
     for(std::size_t i = 0; i < count; i++) {
@@ -371,16 +373,57 @@ void read_file(const std::size_t block_size,
             if(offset == -1)
                 throw std::runtime_error("Failed to seek: " + std::string(strerror(errno)));
         }
-
         ssize_t file_in = read(fd, block_data.get(), block_size);
 
-        if(file_in > 0)
-            continue;
-        else if(file_in < 0)
-            throw std::runtime_error("Failed reading data block: " + std::string(strerror(errno)));
+        if(file_in != 0) {
+
+            if(file_in == block_size) {
+                continue;
+            }
+            else if(file_in < block_size) {
+                throw std::runtime_error("Incomplete reading of data block: " + std::string(strerror(errno)));
+            }
+            else if(file_in < 0) {
+                throw std::runtime_error("Failed reading data block: " + std::string(strerror(errno)));
+            }
+        }
         else
+            std::cout << "File reading complete!!!";
             return;
     }
+
+    if(rest_size) {
+
+        if(enable_random) {
+
+            seek_pos = std::rand() % (limit+1);
+            off_t offset = lseek(fd, seek_pos, SEEK_SET);
+
+            if(offset == -1)
+                throw std::runtime_error("Failed to seek: " + std::string(strerror(errno)));
+        }
+
+        ssize_t file_in = read(fd, block_data.get(), rest_size);
+
+        if(file_in != 0) {
+
+            if(file_in == rest_size) {
+                std::cout << " File reading complete!!!";
+                return;
+            }
+            else if(file_in < rest_size) {
+                throw std::runtime_error("Incomplete reading of data block: " + std::string(strerror(errno)));
+            }
+            else if(file_in < 0) {
+                throw std::runtime_error("Failed reading data block: " + std::string(strerror(errno)));
+            }
+        }
+        else
+            std::cout << "File reading complete!!!";
+            return;
+
+    }
+
 }
 
 void write_file(const std::size_t block_size,
@@ -408,6 +451,8 @@ void write_file(const std::size_t block_size,
     const std::size_t count = total_size / block_size;
     const std::size_t limit = total_size - block_size;
 
+    const std::size_t rest_size = total_size % block_size;
+
     std::size_t seek_pos = -1;
 
     for(std::size_t i = 0; i < count; i++) {
@@ -422,6 +467,23 @@ void write_file(const std::size_t block_size,
         }
 
         ssize_t file_out = write(fd, block_data.get(), block_size);
+
+        if(file_out < 0)
+            throw std::runtime_error("Failed writing data block: " + std::string(strerror(errno)));
+    }
+
+    if(rest_size) {
+
+        if(enable_random) {
+
+            seek_pos = std::rand() % (limit+1);
+            off_t offset = lseek(fd, seek_pos, SEEK_SET);
+
+            if(offset == -1)
+                throw std::runtime_error("Failed to seek: " + std::string(strerror(errno)));
+        }
+
+        ssize_t file_out = write(fd, block_data.get(), rest_size);
 
         if(file_out < 0)
             throw std::runtime_error("Failed writing data block: " + std::string(strerror(errno)));
@@ -441,9 +503,6 @@ IOTestResult run_io_test(const std::string& block,
 
     if(block_size > 1073741824)
         throw std::runtime_error("Max block size is 1GiB!");
-
-    if(total_size % block_size)
-        throw std::runtime_error("Block size must be multiple of total size!");
 
     std::size_t elapsed_time = 0;
     std::size_t throughput_mb_per_sec = 0;
