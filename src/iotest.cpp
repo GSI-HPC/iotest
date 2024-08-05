@@ -275,7 +275,7 @@ Args process_args(int argc, char *argv[])
     }
 
     // A colon ':' in getopt() indicates that an argument has a parameter and is not a switch.
-    while((opt = getopt(argc, argv, "b:t:hrwRWf:s:y:v")) != -1) {
+    while((opt = getopt(argc, argv, "b:t:hvrwRWf:s:y")) != -1) {
 
         switch(opt) {
             case 'b':
