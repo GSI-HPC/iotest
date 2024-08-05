@@ -33,7 +33,9 @@
 
 using namespace std::chrono;
 
-const char version[] = "1.0.0";
+std::string_view version{
+#include "../VERSION"   
+};
 
 typedef std::unique_ptr<char[]> uptr_char_array;
 
