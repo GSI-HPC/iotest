@@ -33,6 +33,10 @@
 
 using namespace std::chrono;
 
+std::string_view version{
+#include "../VERSION"   
+};
+
 typedef std::unique_ptr<char[]> uptr_char_array;
 
 enum class Mode: char
@@ -262,7 +266,8 @@ Args process_args(int argc, char *argv[])
                                "   * -W RANDOM WRITE\n"
                                "-f FILEPATH\n"
                                "-s SEED NUMBER\n"
-                               "-y SYNC ON WRITE\n";
+                               "-y SYNC ON WRITE\n"
+                               "-v CHECK VERSION";
 
     if(argc == 1) {
         std::cout << help_message << "\n";
@@ -270,7 +275,7 @@ Args process_args(int argc, char *argv[])
     }
 
     // A colon ':' in getopt() indicates that an argument has a parameter and is not a switch.
-    while((opt = getopt(argc, argv, "b:t:hrwRWf:s:y")) != -1) {
+    while((opt = getopt(argc, argv, "b:t:hvrwRWf:s:y")) != -1) {
 
         switch(opt) {
             case 'b':
@@ -316,6 +321,10 @@ Args process_args(int argc, char *argv[])
                 break;
             case 'h':
                 std::cout << help_message << "\n";
+                exit(0);
+                break;
+            case 'v':
+                std::cout << "iotest version " << version << "\n";
                 exit(0);
                 break;
             case '?':
