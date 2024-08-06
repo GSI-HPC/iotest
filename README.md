@@ -17,7 +17,7 @@
 
 Make static build so it can be used on other machines without compiling again, but with same architecture:
 
-`g++ src/iotest.cpp -o bin/iotest -ansi -pedantic -Wall -Wextra -std=c++11 --static`
+`g++ src/iotest.cpp -o bin/iotest -ansi -pedantic -Wall -Wextra -std=c++17 --static`
 
 ## Usage
 

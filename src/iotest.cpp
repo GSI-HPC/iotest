@@ -27,8 +27,8 @@
                      + __GNUC_MINOR__ * 100 \
                      + __GNUC_PATCHLEVEL__)
 
-#if GCC_VERSION < 40900
-    #error "GCC version should be greater than 4.9.0 for regex support!"
+#if GCC_VERSION < 110400
+    #error "Minium required GCC version is 11.4.0"
 #endif
 
 using namespace std::chrono;
@@ -267,7 +267,7 @@ Args process_args(int argc, char *argv[])
                                "-f FILEPATH\n"
                                "-s SEED NUMBER\n"
                                "-y SYNC ON WRITE\n"
-                               "-v CHECK VERSION";
+                               "-v PRINT VERSION";
 
     if(argc == 1) {
         std::cout << help_message << "\n";
