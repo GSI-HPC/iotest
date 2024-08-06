@@ -37,6 +37,7 @@ IO MODES:
 -f FILEPATH
 -s SEED NUMBER
 -y SYNC ON WRITE
+-v PRINT VERSION
 ```
 
 ### Example for Synchronous Sequential Write
